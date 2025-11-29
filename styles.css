@@ -27,10 +27,6 @@ h2 {
   font-size: 1.5rem;
 }
 
-h3 {
-  font-size: 1.2rem;
-}
-
 p {
   margin: 0.4em 0;
 }
@@ -71,11 +67,11 @@ code {
 }
 
 .annotated .code-line[data-tooltip] {
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .annotated .code-line[data-tooltip]:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .tooltip-box {
