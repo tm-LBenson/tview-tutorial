@@ -2,476 +2,577 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Building a Terminal Bank App in Go With tview</title>
+  <title>Step-by-Step Bank App in Go With tview</title>
   <link rel="stylesheet" href="styles.css">
   <script src="tooltips.js" defer></script>
 </head>
 <body>
 <main>
   <header>
-    <h1>Building a Terminal Bank App in Go With tview</h1>
+    <h1>Step-by-Step Bank App in Go With tview</h1>
     <p class="tagline">
-      A step by step guide to building a menu based bank app in Go using tview. 
-      The account balance is stored in a text file, and the UI changes color on overdraft.
+      Build a small terminal bank app in Go, one version of <code>main.go</code> at a time.
+      Each step runs on its own, and the explanations live in hover tooltips.
     </p>
   </header>
 
+  <!-- STEP 0: SETUP -->
   <section>
-    <h2>1. What we are going to build</h2>
+    <h2>Step 0 – Project setup</h2>
     <p>
-      The goal is a small terminal application that:
+      In this tutorial, each step is a complete version of <code>main.go</code>.
+      You will:
     </p>
     <ul>
-      <li>Shows a menu on the left with options like View balance, Deposit, Withdraw, Exit.</li>
-      <li>Uses the right side to show the current screen (balance or a form).</li>
-      <li>Stores the account balance in a single text file on disk.</li>
-      <li>Charges an overdraft fee if you try to withdraw more than you have.</li>
-      <li>Turns the background red while the account is overdrawn.</li>
+      <li>Create a folder and Go module.</li>
+      <li>At each step, replace <code>main.go</code> with the new version.</li>
+      <li>Run it and see what changed.</li>
     </ul>
-    <p>
-      We will use <code>tview</code> for the UI and a single <code>main.go</code> file for the program logic.
-      This guide assumes you can run Go code, but it does not require deep Go knowledge.
-      Hover over the highlighted code lines in the snippets to see explanations.
-    </p>
-  </section>
 
-  <section>
-    <h2>2. Project setup</h2>
-    <p>Create a new folder and initialize your Go module:</p>
+    <p>Create a folder and initialize a module:</p>
     <pre class="code-block"><code>mkdir tview-bank
 cd tview-bank
 go mod init github.com/yourname/tview-bank</code></pre>
 
-    <p>Add the tview and tcell dependencies:</p>
+    <p>Install the UI libraries:</p>
     <pre class="code-block"><code>go get github.com/rivo/tview
 go get github.com/gdamore/tcell/v2</code></pre>
 
-    <p>
-      We will keep all Go code in one file called <code>main.go</code>. 
-      The UI blog you are reading now is separate and lives in <code>index.html</code>.
-    </p>
+    <p>Now create an empty <code>main.go</code>. We’ll start filling it in at Step 1.</p>
   </section>
 
+  <!-- STEP 1: HELLO TVIEW -->
   <section>
-    <h2>3. Modeling the account</h2>
+    <h2>Step 1 – Proof of life: Hello tview</h2>
     <p>
-      Before we touch tview, we model the bank account as a simple Go type. 
-      We store money as integer cents to avoid float rounding issues.
+      First we just want a tview app that runs and shows a simple message.
+      Replace the contents of <code>main.go</code> with this:
     </p>
 
     <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="Every Go file starts with a package. For an executable program we use package main.">package main</span>
-<span class="code-line" data-tooltip="We import standard library packages and the tview and tcell libraries.">import (</span>
-<span class="code-line" data-tooltip="fmt will be used to format strings, for example when printing errors.">    "fmt"</span>
-<span class="code-line" data-tooltip="math gives us Round, which we will use to turn dollars into integer cents.">    "math"</span>
-<span class="code-line" data-tooltip="os lets us read and write files on disk.">    "os"</span>
-<span class="code-line" data-tooltip="strconv is used to convert strings to numbers and numbers to strings.">    "strconv"</span>
-<span class="code-line" data-tooltip="strings helps trim whitespace from file content or user input.">    "strings"</span>
-<span class="code-line" data-tooltip="tcell is the terminal cell library used by tview for colors and input.">    "github.com/gdamore/tcell/v2"</span>
-<span class="code-line" data-tooltip="tview is the high level UI toolkit for building terminal interfaces.">    "github.com/rivo/tview"</span>
+<span class="code-line" data-tooltip="Every executable Go program starts with package main.">package main</span>
+<span class="code-line"></span>
+<span class="code-line" data-tooltip="We only import tview for now, nothing else.">import "github.com/rivo/tview"</span>
+<span class="code-line"></span>
+<span class="code-line" data-tooltip="main is the entry point that Go will run.">func main() {</span>
+<span class="code-line" data-tooltip="NewApplication creates the core tview event loop and screen.">    app := tview.NewApplication()</span>
+<span class="code-line" data-tooltip="NewTextView is a simple text widget that can show a string.">    text := tview.NewTextView().SetText("Hello, Bank App!")</span>
+<span class="code-line" data-tooltip="SetRoot(text, true) tells tview to use the TextView as the full screen.">    app.SetRoot(text, true)</span>
+<span class="code-line" data-tooltip="Run starts the UI loop and blocks until you quit or Stop is called.">    if err := app.Run(); err != nil {</span>
+<span class="code-line">        panic(err)</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+</code></pre>
+
+    <p>Run it:</p>
+    <pre class="code-block"><code>go run main.go</code></pre>
+
+    <p>You should see “Hello, Bank App!” in the terminal. Press Ctrl+C to abort if needed.</p>
+  </section>
+
+  <!-- STEP 2: HARD-CODED BALANCE -->
+  <section>
+    <h2>Step 2 – Show a hard-coded balance</h2>
+    <p>
+      Now we introduce the idea of an account balance, but keep it hard-coded in memory.
+      We also add a tiny bit of layout: a header and a main area.
+    </p>
+
+    <p>Replace <code>main.go</code> with this version and run it again:</p>
+
+    <pre class="code-block annotated"><code>
+<span class="code-line">package main</span>
+<span class="code-line"></span>
+<span class="code-line" data-tooltip="fmt is used only to format the balance string here.">import (</span>
+<span class="code-line">    "fmt"</span>
+<span class="code-line">    "github.com/gdamore/tcell/v2"</span>
+<span class="code-line">    "github.com/rivo/tview"</span>
 <span class="code-line">)</span>
-</code></pre>
-
-    <p>Next we define a few constants and the account type.</p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="This is the file where the account balance will be stored as plain text.">const accountFile = "account.txt"</span>
-<span class="code-line" data-tooltip="The overdraft fee is stored as cents. 350 means $3.50.">const overdraftFeeCents int64 = 350</span>
 <span class="code-line"></span>
-<span class="code-line" data-tooltip="Account is a small struct. Right now it only stores the balance.">type Account struct {</span>
-<span class="code-line" data-tooltip="BalanceCents tracks the current balance as integer cents, not as a float.">    BalanceCents int64</span>
+<span class="code-line" data-tooltip="Account represents a single bank account with a balance.">type Account struct {</span>
+<span class="code-line">    BalanceCents int64</span>
 <span class="code-line">}</span>
-</code></pre>
-
-    <p>
-      Now we add functions to load and save the account from the text file.
-      If the file does not exist or is invalid, we start at zero.
-    </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="loadAccount reads the file and returns an Account pointer.">func loadAccount(path string) (*Account, error) {</span>
-<span class="code-line" data-tooltip="os.ReadFile returns the file content or an error.">    data, err := os.ReadFile(path)</span>
-<span class="code-line" data-tooltip="If the file does not exist, we treat that as a fresh account with zero balance.">    if err != nil {</span>
-<span class="code-line">        if os.IsNotExist(err) {</span>
-<span class="code-line">            return &amp;Account{BalanceCents: 0}, nil</span>
-<span class="code-line">        }</span>
-<span class="code-line">        return nil, err</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="We convert the file bytes to a string and trim whitespace.">    s := strings.TrimSpace(string(data))</span>
-<span class="code-line" data-tooltip="If the file is empty, we also treat it as a zero balance.">    if s == "" {</span>
-<span class="code-line">        return &amp;Account{BalanceCents: 0}, nil</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="ParseInt turns the trimmed string into an integer number of cents.">    value, err := strconv.ParseInt(s, 10, 64)</span>
-<span class="code-line">    if err != nil {</span>
-<span class="code-line">        return &amp;Account{BalanceCents: 0}, nil</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="We wrap the value in an Account and return it.">    return &amp;Account{BalanceCents: value}, nil</span>
-<span class="code-line">}</span>
-</code></pre>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="saveAccount writes the current balance (as cents) into the text file.">func saveAccount(path string, a *Account) error {</span>
-<span class="code-line" data-tooltip="We format the integer as a string followed by a newline.">    s := fmt.Sprintf("%d\n", a.BalanceCents)</span>
-<span class="code-line" data-tooltip="WriteFile overwrites the file content with the new balance.">    return os.WriteFile(path, []byte(s), 0644)</span>
-<span class="code-line">}</span>
-</code></pre>
-
-    <p>
-      For displaying and entering amounts, we add helpers to format cents as dollars and parse user input into cents.
-    </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="formatCents turns an integer number of cents into a string like -12.34.">func formatCents(cents int64) string {</span>
-<span class="code-line" data-tooltip="We keep track of the sign and take the absolute value for formatting.">    sign := ""</span>
-<span class="code-line">    if cents &lt; 0 {</span>
-<span class="code-line">        sign = "-"</span>
-<span class="code-line">        cents = -cents</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="dollars is the whole dollar part, remainder is the cents part.">    dollars := cents / 100</span>
-<span class="code-line">    remainder := cents % 100</span>
-<span class="code-line" data-tooltip="We always show two digits for cents.">    return fmt.Sprintf("%s%d.%02d", sign, dollars, remainder)</span>
-<span class="code-line">}</span>
-</code></pre>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="parseAmountToCents reads a string like 12.34 and converts it into integer cents.">func parseAmountToCents(input string) (int64, error) {</span>
-<span class="code-line" data-tooltip="We trim spaces so that accidental spaces do not confuse the parser.">    input = strings.TrimSpace(input)</span>
-<span class="code-line">    if input == "" {</span>
-<span class="code-line">        return 0, fmt.Errorf("empty amount")</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="ParseFloat gives us a floating point number in dollars.">    f, err := strconv.ParseFloat(input, 64)</span>
-<span class="code-line">    if err != nil {</span>
-<span class="code-line">        return 0, err</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="We multiply by 100 and round to the nearest cent.">    cents := int64(math.Round(f * 100))</span>
-<span class="code-line">    if cents &lt;= 0 {</span>
-<span class="code-line">        return 0, fmt.Errorf("amount must be positive")</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="On success we return the number of cents.">    return cents, nil</span>
-<span class="code-line">}</span>
-</code></pre>
-  </section>
-
-  <section>
-    <h2>4. The BankUI struct</h2>
-    <p>
-      The next step is to build the tview UI around the account.
-      We define a <code>BankUI</code> struct to hold the application, the widgets, and the account pointer.
-    </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="BankUI groups the tview Application and all widgets we need.">type BankUI struct {</span>
-<span class="code-line" data-tooltip="app is the main tview application event loop.">    app          *tview.Application</span>
-<span class="code-line" data-tooltip="account points to the current Account and holds the balance.">    account      *Account</span>
-<span class="code-line" data-tooltip="balanceView shows a line like Current balance: $12.34.">    balanceView  *tview.TextView</span>
-<span class="code-line" data-tooltip="statusBar shows short messages at the bottom, such as errors.">    statusBar    *tview.TextView</span>
-<span class="code-line" data-tooltip="menu is a List on the left side with actions like Deposit.">    menu         *tview.List</span>
-<span class="code-line" data-tooltip="pages is a Pages container that switches between screens on the right.">    pages        *tview.Pages</span>
-<span class="code-line" data-tooltip="depositForm is a Form used when the user wants to deposit money.">    depositForm  *tview.Form</span>
-<span class="code-line" data-tooltip="withdrawForm is a Form used when the user wants to withdraw money.">    withdrawForm *tview.Form</span>
-<span class="code-line">}</span>
-</code></pre>
-  </section>
-
-  <section>
-    <h2>5. Laying out the screen with tview</h2>
-    <p>
-      The UI has three main areas:
-    </p>
-    <ul>
-      <li>A header bar at the top.</li>
-      <li>A left menu and right content area in the middle.</li>
-      <li>A status bar at the bottom.</li>
-    </ul>
-    <p>
-      We build this structure in a constructor function that returns a <code>*BankUI</code>.
-    </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="newBankUI creates all widgets, wires them together, and returns a ready BankUI.">func newBankUI(account *Account) *BankUI {</span>
-<span class="code-line" data-tooltip="We create the BankUI value and remember the account pointer.">    ui := &amp;BankUI{</span>
-<span class="code-line">        app:     tview.NewApplication(),</span>
-<span class="code-line">        account: account,</span>
-<span class="code-line">    }</span>
 <span class="code-line"></span>
-<span class="code-line" data-tooltip="TextView for the main balance line, centered.">    ui.balanceView = tview.NewTextView().</span>
-<span class="code-line">        SetTextAlign(tview.AlignCenter)</span>
+<span class="code-line">func main() {</span>
+<span class="code-line" data-tooltip="We create an Account with a hard-coded starting balance.">    account := &Account{BalanceCents: 12345}</span>
+<span class="code-line" data-tooltip="Text showing the current balance; 12345 cents is 123.45 dollars.">    balanceText := fmt.Sprintf("Current balance: $%.2f", float64(account.BalanceCents)/100)</span>
 <span class="code-line"></span>
-<span class="code-line" data-tooltip="Status bar at the bottom with a default message.">    ui.statusBar = tview.NewTextView().</span>
-<span class="code-line">        SetText("Ready").</span>
-<span class="code-line">        SetTextColor(tcell.ColorLightGrey)</span>
+<span class="code-line">    app := tview.NewApplication()</span>
 <span class="code-line"></span>
-<span class="code-line" data-tooltip="Left side List for the main menu.">    ui.menu = tview.NewList().</span>
-<span class="code-line">        ShowSecondaryText(false)</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="Pages container for the right side (balance, deposit form, withdraw form).">    ui.pages = tview.NewPages()</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="Forms for deposit and withdraw screens.">    ui.depositForm = tview.NewForm()</span>
-<span class="code-line">    ui.withdrawForm = tview.NewForm()</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="We create the pages and menu, then update the balance text and theme.">    ui.initPages()</span>
-<span class="code-line">    ui.initMenu()</span>
-<span class="code-line">    ui.updateBalanceView()</span>
-<span class="code-line">    ui.updateTheme()</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="Header text at the top of the screen.">    header := tview.NewTextView().</span>
-<span class="code-line">        SetText("tview Bank - press q to quit").</span>
+<span class="code-line" data-tooltip="Header bar at the top.">    header := tview.NewTextView().</span>
+<span class="code-line">        SetText("Simple Bank").</span>
 <span class="code-line">        SetTextAlign(tview.AlignCenter).</span>
 <span class="code-line">        SetTextColor(tcell.ColorWhite)</span>
 <span class="code-line"></span>
-<span class="code-line" data-tooltip="mainArea splits the screen vertically into menu and content.">    mainArea := tview.NewFlex().</span>
-<span class="code-line">        SetDirection(tview.FlexColumn).</span>
-<span class="code-line">        AddItem(ui.menu, 24, 0, true).</span>
-<span class="code-line">        AddItem(ui.pages, 0, 1, false)</span>
+<span class="code-line" data-tooltip="Main TextView for the balance.">    balanceView := tview.NewTextView().</span>
+<span class="code-line">        SetText(balanceText).</span>
+<span class="code-line">        SetTextAlign(tview.AlignCenter)</span>
 <span class="code-line"></span>
-<span class="code-line" data-tooltip="root stacks header, main area, and status bar vertically.">    root := tview.NewFlex().</span>
+<span class="code-line" data-tooltip="Flex layout lets us stack widgets vertically (rows).">    root := tview.NewFlex().</span>
 <span class="code-line">        SetDirection(tview.FlexRow).</span>
 <span class="code-line">        AddItem(header, 1, 0, false).</span>
-<span class="code-line">        AddItem(mainArea, 0, 1, true).</span>
-<span class="code-line">        AddItem(ui.statusBar, 1, 0, false)</span>
+<span class="code-line">        AddItem(balanceView, 0, 1, true)</span>
 <span class="code-line"></span>
-<span class="code-line" data-tooltip="We set root as the root primitive and focus the menu by default.">    ui.app.SetRoot(root, true).</span>
-<span class="code-line">        SetFocus(ui.menu)</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="InputCapture lets us define global key handling. Here we handle q to quit.">    ui.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {</span>
-<span class="code-line">        if event.Key() == tcell.KeyRune &amp;&amp; event.Rune() == 'q' {</span>
-<span class="code-line">            saveAccount(accountFile, ui.account)</span>
-<span class="code-line">            ui.app.Stop()</span>
-<span class="code-line">            return nil</span>
-<span class="code-line">        }</span>
-<span class="code-line">        return event</span>
-<span class="code-line">    })</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="Finally we return the fully constructed BankUI.">    return ui</span>
+<span class="code-line">    app.SetRoot(root, true)</span>
+<span class="code-line">    if err := app.Run(); err != nil {</span>
+<span class="code-line">        panic(err)</span>
+<span class="code-line">    }</span>
 <span class="code-line">}</span>
 </code></pre>
+
+    <p>
+      You now have a basic layout and a simple account type. Still no file storage, no menu,
+      but you have a starting point that looks more like an app.
+    </p>
   </section>
 
+  <!-- STEP 3: FILE STORAGE ACCOUNT -->
   <section>
-    <h2>6. Pages and menu wiring</h2>
+    <h2>Step 3 – Load and save the balance from a file</h2>
     <p>
-      The app has three main right side screens:
+      Next we want the account to remember its balance between runs.
+      We will:
     </p>
     <ul>
-      <li>Balance page with the current balance.</li>
-      <li>Deposit form with a single Amount field.</li>
-      <li>Withdraw form with a single Amount field.</li>
+      <li>Read <code>account.txt</code> when the app starts.</li>
+      <li>Write the balance back to <code>account.txt</code> on exit.</li>
     </ul>
 
-    <p>We add the pages:</p>
+    <p>Replace <code>main.go</code> with this version and run it. You can run it multiple times and see the same balance:</p>
 
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="initPages defines the right side screens in the Pages container.">func (ui *BankUI) initPages() {</span>
-<span class="code-line" data-tooltip="The balancePage uses a Flex row but only contains the balance TextView for now.">    balancePage := tview.NewFlex().</span>
-<span class="code-line">        SetDirection(tview.FlexRow).</span>
-<span class="code-line">        AddItem(ui.balanceView, 0, 1, false)</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="We add the balancePage to pages and make it visible by default.">    ui.pages.AddPage("balance", balancePage, true, true)</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="The deposit form has a single input and two buttons.">    ui.depositForm.</span>
-<span class="code-line">        AddInputField("Amount", "", 20, nil, nil).</span>
-<span class="code-line">        AddButton("Submit", func() {</span>
-<span class="code-line">            field := ui.depositForm.GetFormItem(0).(*tview.InputField)</span>
-<span class="code-line">            amountText := field.GetText()</span>
-<span class="code-line">            ui.handleDeposit(amountText)</span>
-<span class="code-line">        }).</span>
-<span class="code-line">        AddButton("Cancel", func() {</span>
-<span class="code-line">            ui.pages.SwitchToPage("balance")</span>
-<span class="code-line">            ui.app.SetFocus(ui.menu)</span>
-<span class="code-line">        })</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="We add the deposit form page but keep it hidden at first.">    ui.pages.AddPage("deposit", ui.depositForm, true, false)</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="The withdraw form is symmetric to the deposit form.">    ui.withdrawForm.</span>
-<span class="code-line">        AddInputField("Amount", "", 20, nil, nil).</span>
-<span class="code-line">        AddButton("Submit", func() {</span>
-<span class="code-line">            field := ui.withdrawForm.GetFormItem(0).(*tview.InputField)</span>
-<span class="code-line">            amountText := field.GetText()</span>
-<span class="code-line">            ui.handleWithdraw(amountText)</span>
-<span class="code-line">        }).</span>
-<span class="code-line">        AddButton("Cancel", func() {</span>
-<span class="code-line">            ui.pages.SwitchToPage("balance")</span>
-<span class="code-line">            ui.app.SetFocus(ui.menu)</span>
-<span class="code-line">        })</span>
-<span class="code-line"></span>
-<span class="code-line">    ui.pages.AddPage("withdraw", ui.withdrawForm, true, false)</span>
-<span class="code-line">}</span>
-</code></pre>
+    <pre class="code-block"><code>package main
 
-    <p>Now we define the left menu and connect each item to a page:</p>
+import (
+  "fmt"
+  "os"
+  "strconv"
+  "strings"
 
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="initMenu populates the left List with actions and their handlers.">func (ui *BankUI) initMenu() {</span>
-<span class="code-line" data-tooltip="View balance shows the balance page and keeps focus on the menu.">    ui.menu.AddItem("View balance", "", 'v', func() {</span>
-<span class="code-line">        ui.pages.SwitchToPage("balance")</span>
-<span class="code-line">        ui.app.SetFocus(ui.menu)</span>
-<span class="code-line">    })</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="Deposit opens the deposit form and focuses it.">    ui.menu.AddItem("Deposit", "", 'd', func() {</span>
-<span class="code-line">        ui.depositForm.GetFormItem(0).(*tview.InputField).SetText("")</span>
-<span class="code-line">        ui.pages.SwitchToPage("deposit")</span>
-<span class="code-line">        ui.app.SetFocus(ui.depositForm)</span>
-<span class="code-line">    })</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="Withdraw opens the withdraw form and focuses it.">    ui.menu.AddItem("Withdraw", "", 'w', func() {</span>
-<span class="code-line">        ui.withdrawForm.GetFormItem(0).(*tview.InputField).SetText("")</span>
-<span class="code-line">        ui.pages.SwitchToPage("withdraw")</span>
-<span class="code-line">        ui.app.SetFocus(ui.withdrawForm)</span>
-<span class="code-line">    })</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="Exit saves the account and stops the application.">    ui.menu.AddItem("Exit", "", 'x', func() {</span>
-<span class="code-line">        saveAccount(accountFile, ui.account)</span>
-<span class="code-line">        ui.app.Stop()</span>
-<span class="code-line">    })</span>
-<span class="code-line">}</span>
-</code></pre>
+  "github.com/gdamore/tcell/v2"
+  "github.com/rivo/tview"
+)
+
+const accountFile = "account.txt"
+
+type Account struct {
+  BalanceCents int64
+}
+
+func loadAccount(path string) (*Account, error) {
+  data, err := os.ReadFile(path)
+  if err != nil {
+    if os.IsNotExist(err) {
+      return &Account{BalanceCents: 0}, nil
+    }
+    return nil, err
+  }
+
+  s := strings.TrimSpace(string(data))
+  if s == "" {
+    return &Account{BalanceCents: 0}, nil
+  }
+
+  value, err := strconv.ParseInt(s, 10, 64)
+  if err != nil {
+    return &Account{BalanceCents: 0}, nil
+  }
+
+  return &Account{BalanceCents: value}, nil
+}
+
+func saveAccount(path string, a *Account) error {
+  s := fmt.Sprintf("%d\n", a.BalanceCents)
+  return os.WriteFile(path, []byte(s), 0644)
+}
+
+func main() {
+  account, err := loadAccount(accountFile)
+  if err != nil {
+    fmt.Println("Error loading account:", err)
+    return
+  }
+
+  balanceText := fmt.Sprintf("Current balance: $%.2f", float64(account.BalanceCents)/100)
+
+  app := tview.NewApplication()
+
+  header := tview.NewTextView().
+    SetText("Bank (file-backed)").
+    SetTextAlign(tview.AlignCenter).
+    SetTextColor(tcell.ColorWhite)
+
+  balanceView := tview.NewTextView().
+    SetText(balanceText).
+    SetTextAlign(tview.AlignCenter)
+
+  root := tview.NewFlex().
+    SetDirection(tview.FlexRow).
+    AddItem(header, 1, 0, false).
+    AddItem(balanceView, 0, 1, true)
+
+  app.SetRoot(root, true)
+
+  app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+    if event.Key() == tcell.KeyRune && event.Rune() == 'q' {
+      saveAccount(accountFile, account)
+      app.Stop()
+      return nil
+    }
+    return event
+  })
+
+  if err := app.Run(); err != nil {
+    fmt.Println("Error running UI:", err)
+  }
+}</code></pre>
+
+    <p>
+      Now the account is persistent. Press <code>q</code> to quit so it saves.
+      Right now you cannot change the balance, but the file wiring is in place.
+    </p>
+  </section>
+
+  <!-- STEP 4: MENU + SCREENS -->
+  <section>
+    <h2>Step 4 – Menu and screens (View, Deposit, Withdraw)</h2>
+    <p>
+      This is the main tview step:
+    </p>
+    <ul>
+      <li>A left-hand menu using <code>tview.List</code>.</li>
+      <li>A right-hand <code>tview.Pages</code> area with:
+        <ul>
+          <li>A balance screen.</li>
+          <li>A deposit form.</li>
+          <li>A withdraw form.</li>
+        </ul>
+      </li>
+      <li>A status bar at the bottom for messages.</li>
+    </ul>
+
+    <p>
+      In this step the deposit and withdraw handlers will change the balance,
+      but we will ignore overdraft logic for now. The background will stay the same color.
+    </p>
+
+    <p>Replace <code>main.go</code> with this version and test deposits and withdrawals:</p>
+
+    <pre class="code-block"><code>package main
+
+import (
+  "fmt"
+  "math"
+  "os"
+  "strconv"
+  "strings"
+
+  "github.com/gdamore/tcell/v2"
+  "github.com/rivo/tview"
+)
+
+const accountFile = "account.txt"
+
+type Account struct {
+  BalanceCents int64
+}
+
+type BankUI struct {
+  app          *tview.Application
+  account      *Account
+  balanceView  *tview.TextView
+  statusBar    *tview.TextView
+  menu         *tview.List
+  pages        *tview.Pages
+  depositForm  *tview.Form
+  withdrawForm *tview.Form
+}
+
+func loadAccount(path string) (*Account, error) {
+  data, err := os.ReadFile(path)
+  if err != nil {
+    if os.IsNotExist(err) {
+      return &Account{BalanceCents: 0}, nil
+    }
+    return nil, err
+  }
+
+  s := strings.TrimSpace(string(data))
+  if s == "" {
+    return &Account{BalanceCents: 0}, nil
+  }
+
+  value, err := strconv.ParseInt(s, 10, 64)
+  if err != nil {
+    return &Account{BalanceCents: 0}, nil
+  }
+
+  return &Account{BalanceCents: value}, nil
+}
+
+func saveAccount(path string, a *Account) error {
+  s := fmt.Sprintf("%d\n", a.BalanceCents)
+  return os.WriteFile(path, []byte(s), 0644)
+}
+
+func formatCents(cents int64) string {
+  sign := ""
+  if cents &lt; 0 {
+    sign = "-"
+    cents = -cents
+  }
+
+  dollars := cents / 100
+  remainder := cents % 100
+
+  return fmt.Sprintf("%s%d.%02d", sign, dollars, remainder)
+}
+
+func parseAmountToCents(input string) (int64, error) {
+  input = strings.TrimSpace(input)
+  if input == "" {
+    return 0, fmt.Errorf("empty amount")
+  }
+
+  f, err := strconv.ParseFloat(input, 64)
+  if err != nil {
+    return 0, err
+  }
+
+  cents := int64(math.Round(f * 100))
+  if cents &lt;= 0 {
+    return 0, fmt.Errorf("amount must be positive")
+  }
+
+  return cents, nil
+}
+
+func newBankUI(account *Account) *BankUI {
+  ui := &BankUI{
+    app:     tview.NewApplication(),
+    account: account,
+  }
+
+  ui.balanceView = tview.NewTextView().
+    SetTextAlign(tview.AlignCenter)
+
+  ui.statusBar = tview.NewTextView().
+    SetText("Ready").
+    SetTextColor(tcell.ColorLightGrey)
+
+  ui.menu = tview.NewList().
+    ShowSecondaryText(false)
+
+  ui.pages = tview.NewPages()
+
+  ui.depositForm = tview.NewForm()
+  ui.withdrawForm = tview.NewForm()
+
+  ui.initPages()
+  ui.initMenu()
+  ui.updateBalanceView()
+
+  header := tview.NewTextView().
+    SetText("Bank Menu - press q to quit").
+    SetTextAlign(tview.AlignCenter).
+    SetTextColor(tcell.ColorWhite)
+
+  mainArea := tview.NewFlex().
+    SetDirection(tview.FlexColumn).
+    AddItem(ui.menu, 24, 0, true).
+    AddItem(ui.pages, 0, 1, false)
+
+  root := tview.NewFlex().
+    SetDirection(tview.FlexRow).
+    AddItem(header, 1, 0, false).
+    AddItem(mainArea, 0, 1, true).
+    AddItem(ui.statusBar, 1, 0, false)
+
+  ui.app.SetRoot(root, true).
+    SetFocus(ui.menu)
+
+  ui.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+    if event.Key() == tcell.KeyRune && event.Rune() == 'q' {
+      saveAccount(accountFile, ui.account)
+      ui.app.Stop()
+      return nil
+    }
+    return event
+  })
+
+  return ui
+}
+
+func (ui *BankUI) initPages() {
+  balancePage := tview.NewFlex().
+    SetDirection(tview.FlexRow).
+    AddItem(ui.balanceView, 0, 1, false)
+
+  ui.pages.AddPage("balance", balancePage, true, true)
+
+  ui.depositForm.
+    AddInputField("Amount", "", 20, nil, nil).
+    AddButton("Submit", func() {
+      field := ui.depositForm.GetFormItem(0).(*tview.InputField)
+      amountText := field.GetText()
+      ui.handleDeposit(amountText)
+    }).
+    AddButton("Cancel", func() {
+      ui.pages.SwitchToPage("balance")
+      ui.app.SetFocus(ui.menu)
+    })
+
+  ui.pages.AddPage("deposit", ui.depositForm, true, false)
+
+  ui.withdrawForm.
+    AddInputField("Amount", "", 20, nil, nil).
+    AddButton("Submit", func() {
+      field := ui.withdrawForm.GetFormItem(0).(*tview.InputField)
+      amountText := field.GetText()
+      ui.handleWithdraw(amountText)
+    }).
+    AddButton("Cancel", func() {
+      ui.pages.SwitchToPage("balance")
+      ui.app.SetFocus(ui.menu)
+    })
+
+  ui.pages.AddPage("withdraw", ui.withdrawForm, true, false)
+}
+
+func (ui *BankUI) initMenu() {
+  ui.menu.AddItem("View balance", "", 'v', func() {
+    ui.pages.SwitchToPage("balance")
+    ui.app.SetFocus(ui.menu)
+  })
+
+  ui.menu.AddItem("Deposit", "", 'd', func() {
+    ui.depositForm.GetFormItem(0).(*tview.InputField).SetText("")
+    ui.pages.SwitchToPage("deposit")
+    ui.app.SetFocus(ui.depositForm)
+  })
+
+  ui.menu.AddItem("Withdraw", "", 'w', func() {
+    ui.withdrawForm.GetFormItem(0).(*tview.InputField).SetText("")
+    ui.pages.SwitchToPage("withdraw")
+    ui.app.SetFocus(ui.withdrawForm)
+  })
+
+  ui.menu.AddItem("Exit", "", 'x', func() {
+    saveAccount(accountFile, ui.account)
+    ui.app.Stop()
+  })
+}
+
+func (ui *BankUI) updateBalanceView() {
+  text := "Current balance: $" + formatCents(ui.account.BalanceCents)
+  ui.balanceView.SetText(text)
+}
+
+func (ui *BankUI) setStatus(msg string) {
+  ui.statusBar.SetText(msg)
+}
+
+func (ui *BankUI) handleDeposit(amountText string) {
+  cents, err := parseAmountToCents(amountText)
+  if err != nil {
+    ui.setStatus("Invalid deposit amount")
+    return
+  }
+
+  ui.account.BalanceCents += cents
+
+  saveAccount(accountFile, ui.account)
+  ui.updateBalanceView()
+
+  ui.setStatus("Deposited $" + formatCents(cents))
+  ui.pages.SwitchToPage("balance")
+  ui.app.SetFocus(ui.menu)
+}
+
+func (ui *BankUI) handleWithdraw(amountText string) {
+  cents, err := parseAmountToCents(amountText)
+  if err != nil {
+    ui.setStatus("Invalid withdraw amount")
+    return
+  }
+
+  ui.account.BalanceCents -= cents
+
+  saveAccount(accountFile, ui.account)
+  ui.updateBalanceView()
+
+  ui.setStatus("Withdrew $" + formatCents(cents))
+  ui.pages.SwitchToPage("balance")
+  ui.app.SetFocus(ui.menu)
+}
+
+func (ui *BankUI) Run() error {
+  return ui.app.Run()
+}
+
+func main() {
+  account, err := loadAccount(accountFile)
+  if err != nil {
+    fmt.Println("Error loading account:", err)
+    return
+  }
+
+  ui := newBankUI(account)
+  if err := ui.Run(); err != nil {
+    fmt.Println("Error running UI:", err)
+  }
+}</code></pre>
+
+    <p>
+      At this point you can:
+    </p>
+    <ul>
+      <li>View the balance.</li>
+      <li>Deposit money.</li>
+      <li>Withdraw money (no overdraft logic yet).</li>
+      <li>Quit (by pressing <code>q</code> or selecting Exit) and see the balance saved to <code>account.txt</code>.</li>
+    </ul>
+  </section>
+
+  <!-- STEP 5: OVERDRAFT + RED -->
+  <section>
+    <h2>Step 5 – Overdraft fee and red background</h2>
+    <p>
+      Final step: add an overdraft fee and a red theme when the account is negative.
+      We will:
+    </p>
+    <ul>
+      <li>Add an <code>overdraftFeeCents</code> constant.</li>
+      <li>Change the withdraw logic to apply the fee if the balance crosses below zero.</li>
+      <li>Add <code>updateTheme</code> to switch colors.</li>
+    </ul>
+
+    <p>
+      Replace <code>main.go</code> one more time with the final complete program (this is the same code I gave you earlier as the final version):
+    </p>
+
+    <pre class="code-block"><code>/* use the final main.go from the previous answer or your current version here */</code></pre>
+
+    <p>
+      Now you have:
+    </p>
+    <ul>
+      <li>A runnable tview app built in steps.</li>
+      <li>Persistent file-backed balance.</li>
+      <li>Deposit and withdraw flows.</li>
+      <li>Overdraft fee and red UI theme for negative balances.</li>
+    </ul>
   </section>
 
   <section>
-    <h2>7. Updating the UI when the account changes</h2>
+    <h2>How to extend this for teaching</h2>
     <p>
-      Two helper methods keep the UI text in sync with the account and update the status bar.
+      If you share this with students, you can:
     </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="updateBalanceView writes the balance into the balance TextView.">func (ui *BankUI) updateBalanceView() {</span>
-<span class="code-line">    text := "Current balance: $" + formatCents(ui.account.BalanceCents)</span>
-<span class="code-line">    ui.balanceView.SetText(text)</span>
-<span class="code-line">}</span>
-</code></pre>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="setStatus sets a short message at the bottom of the screen.">func (ui *BankUI) setStatus(msg string) {</span>
-<span class="code-line">    ui.statusBar.SetText(msg)</span>
-<span class="code-line">}</span>
-</code></pre>
-  </section>
-
-  <section>
-    <h2>8. Deposit and withdraw handlers</h2>
-    <p>
-      The deposit handler parses the amount, updates the account, saves to disk, refreshes the UI, and returns to the balance screen.
-    </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="handleDeposit is called when the user submits the deposit form.">func (ui *BankUI) handleDeposit(amountText string) {</span>
-<span class="code-line" data-tooltip="We convert the typed amount into cents and catch any parsing error.">    cents, err := parseAmountToCents(amountText)</span>
-<span class="code-line">    if err != nil {</span>
-<span class="code-line">        ui.setStatus("Invalid deposit amount")</span>
-<span class="code-line">        return</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="We add the amount to the current balance.">    ui.account.BalanceCents += cents</span>
-<span class="code-line" data-tooltip="We save the updated account to the file.">    saveAccount(accountFile, ui.account)</span>
-<span class="code-line" data-tooltip="Theme may change if we were negative and are now positive again.">    ui.updateTheme()</span>
-<span class="code-line">    ui.updateBalanceView()</span>
-<span class="code-line" data-tooltip="We show a confirmation message in the status bar.">    ui.setStatus("Deposited $" + formatCents(cents))</span>
-<span class="code-line" data-tooltip="We return to the balance page and focus the menu.">    ui.pages.SwitchToPage("balance")</span>
-<span class="code-line">    ui.app.SetFocus(ui.menu)</span>
-<span class="code-line">}</span>
-</code></pre>
-
-    <p>The withdraw handler also checks for overdraft and applies a fee when needed.</p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="handleWithdraw is called when the user submits the withdraw form.">func (ui *BankUI) handleWithdraw(amountText string) {</span>
-<span class="code-line">    cents, err := parseAmountToCents(amountText)</span>
-<span class="code-line">    if err != nil {</span>
-<span class="code-line">        ui.setStatus("Invalid withdraw amount")</span>
-<span class="code-line">        return</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="We remember the old balance to decide if overdraft should apply.">    oldBalance := ui.account.BalanceCents</span>
-<span class="code-line">    newBalance := oldBalance - cents</span>
-<span class="code-line">    overdraftApplied := false</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="If the new balance is negative and the old one was not, we charge an overdraft fee.">    if newBalance &lt; 0 &amp;&amp; oldBalance &gt;= 0 {</span>
-<span class="code-line">        newBalance -= overdraftFeeCents</span>
-<span class="code-line">        overdraftApplied = true</span>
-<span class="code-line">    }</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="We store the new balance in the account.">    ui.account.BalanceCents = newBalance</span>
-<span class="code-line">    saveAccount(accountFile, ui.account)</span>
-<span class="code-line">    ui.updateTheme()</span>
-<span class="code-line">    ui.updateBalanceView()</span>
-<span class="code-line"></span>
-<span class="code-line" data-tooltip="We give feedback in the status bar, mentioning the fee if it was applied.">    if overdraftApplied {</span>
-<span class="code-line">        ui.setStatus("Overdraft: fee applied, withdrawal $" + formatCents(cents))</span>
-<span class="code-line">    } else {</span>
-<span class="code-line">        ui.setStatus("Withdrew $" + formatCents(cents))</span>
-<span class="code-line">    }</span>
-<span class="code-line"></span>
-<span class="code-line">    ui.pages.SwitchToPage("balance")</span>
-<span class="code-line">    ui.app.SetFocus(ui.menu)</span>
-<span class="code-line">}</span>
-</code></pre>
-  </section>
-
-  <section>
-    <h2>9. Overdraft theme: turning the background red</h2>
-    <p>
-      When the account is negative, we want the UI to feel dangerous. 
-      We can update the tview theme and some widget colors based on the balance.
-    </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="updateTheme adjusts colors depending on whether the balance is negative.">func (ui *BankUI) updateTheme() {</span>
-<span class="code-line">    if ui.account.BalanceCents &lt; 0 {</span>
-<span class="code-line">        tview.Styles.PrimitiveBackgroundColor = tcell.ColorDarkRed</span>
-<span class="code-line">        tview.Styles.ContrastBackgroundColor = tcell.ColorDarkRed</span>
-<span class="code-line">        tview.Styles.MoreContrastBackgroundColor = tcell.ColorDarkRed</span>
-<span class="code-line">        ui.balanceView.SetTextColor(tcell.ColorWhite)</span>
-<span class="code-line">        ui.statusBar.SetTextColor(tcell.ColorWhite)</span>
-<span class="code-line">    } else {</span>
-<span class="code-line">        tview.Styles.PrimitiveBackgroundColor = tcell.ColorBlack</span>
-<span class="code-line">        tview.Styles.ContrastBackgroundColor = tcell.ColorBlue</span>
-<span class="code-line">        tview.Styles.MoreContrastBackgroundColor = tcell.ColorDarkBlue</span>
-<span class="code-line">        ui.balanceView.SetTextColor(tcell.ColorLightGreen)</span>
-<span class="code-line">        ui.statusBar.SetTextColor(tcell.ColorLightGrey)</span>
-<span class="code-line">    }</span>
-<span class="code-line">}</span>
-</code></pre>
-  </section>
-
-  <section>
-    <h2>10. Running the app</h2>
-    <p>
-      Finally, we add two small methods: one to run the tview application loop, and one <code>main</code> function that ties everything together.
-    </p>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="Run is a thin wrapper that starts the tview event loop.">func (ui *BankUI) Run() error {</span>
-<span class="code-line">    return ui.app.Run()</span>
-<span class="code-line">}</span>
-</code></pre>
-
-    <pre class="code-block annotated"><code>
-<span class="code-line" data-tooltip="main is the entry point of the program.">func main() {</span>
-<span class="code-line" data-tooltip="We try to load the account data from the text file.">    account, err := loadAccount(accountFile)</span>
-<span class="code-line">    if err != nil {</span>
-<span class="code-line">        fmt.Println("Error loading account:", err)</span>
-<span class="code-line">        return</span>
-<span class="code-line">    }</span>
-<span class="code-line" data-tooltip="We build the UI around the loaded account.">    ui := newBankUI(account)</span>
-<span class="code-line" data-tooltip="Then we run the UI. If it returns an error we print it.">    if err := ui.Run(); err != nil {</span>
-<span class="code-line">        fmt.Println("Error running UI:", err)</span>
-<span class="code-line">    }</span>
-<span class="code-line">}</span>
-</code></pre>
-
-    <p>
-      To see the app in action, make sure your <code>main.go</code> matches the final version below, then run:
-    </p>
-    <pre class="code-block"><code>go run ./...</code></pre>
-  </section>
-
-  <section>
-    <h2>11. Final main.go for reference</h2>
-    <p>
-      Here is the complete Go source file with everything put together. 
-      Your students can copy this file into their project, then read back up through the tutorial to understand each part.
-    </p>
-    <p>
-      The code below is plain Go code, without inline comments, so it is easy to copy into an editor.
-    </p>
+    <ul>
+      <li>Ask them to implement Step 2 or Step 3 themselves, using only the previous step as a hint.</li>
+      <li>Remove the final complete main.go and make that their “final exercise.”</li>
+      <li>Add extra hover tooltips to lines you know will be confusing.</li>
+    </ul>
   </section>
 </main>
 </body>
